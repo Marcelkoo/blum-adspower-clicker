@@ -17,7 +17,7 @@
 - Вход в веб-версию Телеграма в адсе ([https://web.telegram.org/](https://web.telegram.org/))
 - **Важно:** Первый вход в BLUM по реферальной ссылке должен быть выполнен вручную, также по желанию прокликать бонусы (подписка на канал, YouTube и т.д.). Бот эти действия не выполняет.
 --------
-- Моя многоразовая рефочка блюма [t.me/BlumCryptoBot/app?startapp=ref_Ibgg6ICPd7](t.me/BlumCryptoBot/app?startapp=ref_Ibgg6ICPd7)
+- Моя многоразовая рефочка блюма [https://t.me/BlumCryptoBot/app?startapp=ref_Ibgg6ICPd7](https://t.me/BlumCryptoBot/app?startapp=ref_Ibgg6ICPd7)
 - Моя рефочка adspower - https://share.adspower.net/marcel и купон код Marcel для -5% скидки
 
 ## Установка
