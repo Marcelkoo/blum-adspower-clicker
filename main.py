@@ -80,8 +80,8 @@ class TelegramBotAutomation:
         print_with_time(f"Account {self.serial_number}: BLUM STARTED")
 
     def check_claim_button(self):
-        print_with_time(f"Account {self.serial_number}: Sleeping 10 seconds")
-        time.sleep(10)  
+        print_with_time(f"Account {self.serial_number}: Sleeping 30 seconds")
+        time.sleep(30)  
         print_with_time(f"Account {self.serial_number}: Sleeping done")
         if not self.switch_to_iframe():
             print_with_time(f"Account {self.serial_number}: No iframes found")
