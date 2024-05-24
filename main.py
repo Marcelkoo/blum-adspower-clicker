@@ -142,7 +142,8 @@ class TelegramBotAutomation:
 
     def start_farming(self, button):
         button.click()
-        print_with_time(f"Account {self.serial_number}: Clicked on 'Start farming'. Checking balance after:")
+        print_with_time(f"Account {self.serial_number}: Clicked on 'Start farming'. Sleep 30 seconds and checking balance after:")
+        time.sleep(30)
         self.check_balance()
 
     def claim_tokens(self, button, amount_text):
@@ -180,26 +181,39 @@ def read_accounts_from_file():
         return [line.strip() for line in file.readlines()]
 
 if __name__ == "__main__":
-    while True:  # Loop to keep the script running
+    while True: 
         accounts = read_accounts_from_file()
         for account in accounts:
-            bot = TelegramBotAutomation(account)
-            try:
-                bot.navigate_to_bot()
-                bot.send_message("https://t.me/retg54erg45g4e")
-                bot.click_link()
-                bot.check_claim_button()
-            except Exception as e:
-                print_with_time(f"Account {account}: Error occurred: {e}")
-            finally:
-                print_with_time("-------------END-----------")
-                time.sleep(5)
-                bot.close_browser()
+            retry_count = 0
+            success = False
+            while retry_count < 3 and not success:
+                bot = TelegramBotAutomation(account)
+                try:
+                    bot.navigate_to_bot()
+                    bot.send_message("https://t.me/retg54erg45g4e")
+                    bot.click_link()
+                    bot.check_claim_button()
+                    print_with_time(f"Account {account}: Processing completed successfully.")
+                    success = True  
+                except Exception as e:
+                    print_with_time(f"Account {account}: Error occurred on attempt {retry_count + 1}: {e}")
+                    retry_count += 1  
+                finally:
+                    print_with_time("-------------END-----------")
+                    bot.close_browser()
+                    time.sleep(5)
+                
+                if retry_count >= 3:
+                    print_with_time(f"Account {account}: Failed after 3 attempts.")
+
+            if not success:
+                print_with_time(f"Account {account}: Moving to next account after 3 failed attempts.")
+                continue 
+
         print_with_time("All accounts processed. Waiting 8 hours and 5 minutes before restarting.")
-        for minute in range(485):  # 8 hours and 5 minutes = 485 minutes
-            if minute % 60 == 0:  # Print every hour
+        for minute in range(485): 
+            if minute % 60 == 0:  
                 hours_left = (485 - minute) // 60
                 minutes_left = (485 - minute) % 60
                 print_with_time(f"Waiting... {hours_left} hours and {minutes_left} minutes left till restart.")
-            time.sleep(60) 
-
+            time.sleep(60)  
