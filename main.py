@@ -12,31 +12,16 @@ from datetime import datetime
 def print_with_time(message):
     print(f"{datetime.now()}: {message}")
 
-class TelegramBotAutomation:
+class BrowserManager:
     def __init__(self, serial_number):
         self.serial_number = serial_number
         self.driver = None
-        print_with_time(f"Initializing automation for account {serial_number}")
-        self.start_browser()
-
-    def check_balance(self):
-        print_with_time(f"Account {self.serial_number}: Trying to get total balance")
-        try:
-            iframes = self.driver.find_elements(By.TAG_NAME, "iframe")
-            if iframes:
-                self.driver.switch_to.frame(iframes[0])
-
-            balance_elements = WebDriverWait(self.driver, 10).until(
-                EC.visibility_of_all_elements_located((By.CSS_SELECTOR, "div.profile-with-balance .kit-counter-animation.value .el-char-wrapper .el-char"))
-            )
-            balance = ''.join([element.text for element in balance_elements])
-            print_with_time(f"Account {self.serial_number}: Current balance: {balance}")
-
-        except TimeoutException:
-            print_with_time(f"Account {self.serial_number}: Failed to find the balance element.")
 
     def start_browser(self):
-        response = requests.get('http://local.adspower.net:50325/api/v1/browser/start', params={'serial_number': self.serial_number, 'headless': 1})
+        response = requests.get(
+            'http://local.adspower.net:50325/api/v1/browser/start', 
+            params={'serial_number': self.serial_number, 'headless': 1}
+        )
         data = response.json()
         if data['code'] == 0:
             selenium_address = data['data']['ws']['selenium']
@@ -47,35 +32,48 @@ class TelegramBotAutomation:
             self.driver = webdriver.Chrome(service=service, options=chrome_options)
             print_with_time(f"Account {self.serial_number}: Browser started successfully.")
         else:
-            print_with_time(f"Account {self.serial_number}: Failed to start the browser.")
-    
+            raise Exception(f"Account {self.serial_number}: Failed to start the browser.")
+
+    def close_browser(self):
+        try:
+            response = requests.get(
+                'http://local.adspower.net:50325/api/v1/browser/stop', 
+                params={'serial_number': self.serial_number}
+            )
+            data = response.json()
+            if data['code'] == 0:
+                print_with_time(f"Account {self.serial_number}: Browser closed successfully.")
+            else:
+                print_with_time(f"Account {self.serial_number}: Failed to close the browser. Error: {data['msg']}")
+        except Exception as e:
+            print_with_time(f"Account {self.serial_number}: Exception occurred when trying to close the browser: {str(e)}")
+
+class TelegramBotAutomation:
+    def __init__(self, serial_number):
+        self.serial_number = serial_number
+        self.browser_manager = BrowserManager(serial_number)
+        print_with_time(f"Initializing automation for account {serial_number}")
+        self.browser_manager.start_browser()
+        self.driver = self.browser_manager.driver
 
     def navigate_to_bot(self):
         self.driver.get("https://web.telegram.org/k/")
         print_with_time(f"Account {self.serial_number}: Navigated to Telegram web.")
 
     def send_message(self, message):
-        chat_input_area = WebDriverWait(self.driver, 10).until(
-            EC.element_to_be_clickable((By.XPATH, '/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[2]/input[1]'))
-        )
+        chat_input_area = self.wait_for_element(By.XPATH, '/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[2]/input[1]')
         chat_input_area.click()
         chat_input_area.send_keys(message)
 
-        search_area = WebDriverWait(self.driver, 10).until(
-            EC.element_to_be_clickable((By.XPATH, '/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[3]/div[2]/div[2]/div[2]/div[1]/div[1]/div[1]/div[2]/ul[1]/a[1]/div[1]'))
-        )
+        search_area = self.wait_for_element(By.XPATH, '/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[3]/div[2]/div[2]/div[2]/div[1]/div[1]/div[1]/div[2]/ul[1]/a[1]/div[1]')
         search_area.click()
         print_with_time(f"Account {self.serial_number}: Group searched.")
 
     def click_link(self):
-        link = WebDriverWait(self.driver, 10).until(
-            EC.element_to_be_clickable((By.CSS_SELECTOR, "a[href*='t.me/BlumCryptoBot/app?startapp']"))
-        )
+        link = self.wait_for_element(By.CSS_SELECTOR, "a[href*='t.me/BlumCryptoBot/app?startapp']")
         link.click()
 
-        launch_click = WebDriverWait(self.driver, 10).until(
-            EC.element_to_be_clickable((By.XPATH, "/html[1]/body[1]/div[7]/div[1]/div[2]/button[1]/div[1]"))
-        )
+        launch_click = self.wait_for_element(By.XPATH, "/html[1]/body[1]/div[7]/div[1]/div[2]/button[1]/div[1]")
         launch_click.click()
         print_with_time(f"Account {self.serial_number}: BLUM STARTED")
 
@@ -87,8 +85,12 @@ class TelegramBotAutomation:
             print_with_time(f"Account {self.serial_number}: No iframes found")
             return
         
-        self.check_balance()
+        initial_balance = self.check_balance()
         self.process_buttons()
+        final_balance = self.check_balance()
+
+        if final_balance is not None and initial_balance == final_balance and not self.is_farming_active():
+            raise Exception(f"Account {self.serial_number}: Balance did not change after claiming tokens.")
 
     def switch_to_iframe(self):
         self.driver.switch_to.default_content()
@@ -99,23 +101,13 @@ class TelegramBotAutomation:
         return False
 
     def process_buttons(self):
-        try:
-            buttons = WebDriverWait(self.driver, 10).until(
-                EC.visibility_of_all_elements_located((By.CSS_SELECTOR, ".farming-buttons-wrapper .kit-button"))
-            )
-            print_with_time(f"Account {self.serial_number}: Found {len(buttons)} buttons")
-            for button in buttons:
-                self.process_single_button(button)
-        except (TimeoutException, NoSuchElementException) as e:
-            print_with_time(f"Account {self.serial_number}: Exception occurred: {e}")
+        buttons = self.wait_for_elements(By.CSS_SELECTOR, ".farming-buttons-wrapper .kit-button")
+        print_with_time(f"Account {self.serial_number}: Found {len(buttons)} buttons")
+        for button in buttons:
+            self.process_single_button(button)
 
     def process_single_button(self, button):
-        try:
-            button_text = self.get_button_text(button)
-        except NoSuchElementException:
-            print_with_time(f"Account {self.serial_number}: Button label not found.")
-            return
-        
+        button_text = self.get_button_text(button)
         amount_elements = button.find_elements(By.CSS_SELECTOR, "div.amount")
         amount_text = amount_elements[0].text if amount_elements else None
 
@@ -142,9 +134,11 @@ class TelegramBotAutomation:
 
     def start_farming(self, button):
         button.click()
-        print_with_time(f"Account {self.serial_number}: Clicked on 'Start farming'. Sleep 30 seconds and checking balance after:")
+        print_with_time(f"Account {self.serial_number}: Clicked on 'Start farming'. Sleep 30 seconds and checking status after:")
         time.sleep(30)
-        self.check_balance()
+        self.handle_farming(button)
+        if not self.is_farming_active():
+            raise Exception(f"Account {self.serial_number}: Farming did not start successfully.")
 
     def claim_tokens(self, button, amount_text):
         print_with_time(f"Account {self.serial_number}: Account has {amount_text} claimable tokens. Trying to claim.")
@@ -156,31 +150,54 @@ class TelegramBotAutomation:
             EC.visibility_of_element_located((By.CSS_SELECTOR, ".label"))
         )
 
-        start_farming_button = WebDriverWait(self.driver, 10).until(
-            EC.element_to_be_clickable((By.CSS_SELECTOR, ".label"))
-        )
+        start_farming_button = self.wait_for_element(By.CSS_SELECTOR, ".label")
         start_farming_button.click() 
-        print_with_time(f"Account {self.serial_number}: Second click successful on 'Start farming'. Check balance after:")
-        self.check_balance()
+        print_with_time(f"Account {self.serial_number}: Second click successful on 'Start farming'. Check status after:")
+        time.sleep(30)
+        self.handle_farming(start_farming_button)
+        if not self.is_farming_active():
+            raise Exception(f"Account {self.serial_number}: Farming did not start successfully.")
 
-
-    def close_browser(self):
+    def check_balance(self):
+        print_with_time(f"Account {self.serial_number}: Trying to get total balance")
         try:
-            response = requests.get('http://local.adspower.net:50325/api/v1/browser/stop', params={'serial_number': self.serial_number})
-            data = response.json()
-            if data['code'] == 0:
-                print_with_time(f"Account {self.serial_number}: Browser closed successfully.")
-            else:
-                print_with_time(f"Account {self.serial_number}: Failed to close the browser. Error: {data['msg']}")
-        except Exception as e:
-            print_with_time(f"Account {self.serial_number}: Exception occurred when trying to close the browser: {str(e)}")
+            iframes = self.driver.find_elements(By.TAG_NAME, "iframe")
+            if iframes:
+                self.driver.switch_to.frame(iframes[0])
 
+            balance_elements = WebDriverWait(self.driver, 10).until(
+                EC.visibility_of_all_elements_located((By.CSS_SELECTOR, "div.profile-with-balance .kit-counter-animation.value .el-char-wrapper .el-char"))
+            )
+            balance = ''.join([element.text for element in balance_elements])
+            print_with_time(f"Account {self.serial_number}: Current balance: {balance}")
+            return float(balance.replace(',', ''))
+
+        except TimeoutException:
+            print_with_time(f"Account {self.serial_number}: Failed to find the balance element.")
+            return None
+
+    def wait_for_element(self, by, value, timeout=10):
+        return WebDriverWait(self.driver, timeout).until(
+            EC.element_to_be_clickable((by, value))
+        )
+
+    def wait_for_elements(self, by, value, timeout=10):
+        return WebDriverWait(self.driver, timeout).until(
+            EC.visibility_of_all_elements_located((by, value))
+        )
+    
+    def is_farming_active(self):
+        try:
+            self.driver.find_element(By.CSS_SELECTOR, "div.time-left")
+            return True
+        except NoSuchElementException:
+            return False
 
 def read_accounts_from_file():
     with open('accounts.txt', 'r') as file:
         return [line.strip() for line in file.readlines()]
 
-if __name__ == "__main__":
+def process_accounts():
     while True: 
         accounts = read_accounts_from_file()
         for account in accounts:
@@ -200,7 +217,7 @@ if __name__ == "__main__":
                     retry_count += 1  
                 finally:
                     print_with_time("-------------END-----------")
-                    bot.close_browser()
+                    bot.browser_manager.close_browser()
                     time.sleep(5)
                 
                 if retry_count >= 3:
@@ -216,4 +233,7 @@ if __name__ == "__main__":
                 hours_left = (485 - minute) // 60
                 minutes_left = (485 - minute) % 60
                 print_with_time(f"Waiting... {hours_left} hours and {minutes_left} minutes left till restart.")
-            time.sleep(60)  
+            time.sleep(60)
+
+if __name__ == "__main__":
+    process_accounts()
