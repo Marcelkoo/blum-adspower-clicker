@@ -1,5 +1,6 @@
 import requests
 import time
+import logging
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
@@ -7,10 +8,9 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException, NoSuchElementException
-from datetime import datetime
 
-def print_with_time(message):
-    print(f"{datetime.now()}: {message}")
+# Set up logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s: %(levelname)s: %(message)s')
 
 class BrowserManager:
     def __init__(self, serial_number):
@@ -18,21 +18,27 @@ class BrowserManager:
         self.driver = None
 
     def start_browser(self):
-        response = requests.get(
-            'http://local.adspower.net:50325/api/v1/browser/start', 
-            params={'serial_number': self.serial_number, 'headless': 1}
-        )
-        data = response.json()
-        if data['code'] == 0:
-            selenium_address = data['data']['ws']['selenium']
-            webdriver_path = data['data']['webdriver']
-            chrome_options = Options()
-            chrome_options.add_experimental_option("debuggerAddress", selenium_address)
-            service = Service(executable_path=webdriver_path)
-            self.driver = webdriver.Chrome(service=service, options=chrome_options)
-            print_with_time(f"Account {self.serial_number}: Browser started successfully.")
-        else:
-            raise Exception(f"Account {self.serial_number}: Failed to start the browser.")
+        try:
+            response = requests.get(
+                'http://local.adspower.net:50325/api/v1/browser/start', 
+                params={'serial_number': self.serial_number, 'headless': 1}
+            )
+            data = response.json()
+            if data['code'] == 0:
+                selenium_address = data['data']['ws']['selenium']
+                webdriver_path = data['data']['webdriver']
+                chrome_options = Options()
+                chrome_options.add_experimental_option("debuggerAddress", selenium_address)
+                service = Service(executable_path=webdriver_path)
+                self.driver = webdriver.Chrome(service=service, options=chrome_options)
+                logging.info(f"Account {self.serial_number}: Browser started successfully.")
+                return True
+            else:
+                logging.warning(f"Account {self.serial_number}: Failed to start the browser. Error: {data['msg']}")
+                return False
+        except Exception as e:
+            logging.exception(f"Account {self.serial_number}: Exception in starting browser: {str(e)}")
+            return False
 
     def close_browser(self):
         try:
@@ -42,23 +48,23 @@ class BrowserManager:
             )
             data = response.json()
             if data['code'] == 0:
-                print_with_time(f"Account {self.serial_number}: Browser closed successfully.")
+                logging.info(f"Account {self.serial_number}: Browser closed successfully.")
             else:
-                print_with_time(f"Account {self.serial_number}: Failed to close the browser. Error: {data['msg']}")
+                logging.warning(f"Account {self.serial_number}: Failed to close the browser. Error: {data['msg']}")
         except Exception as e:
-            print_with_time(f"Account {self.serial_number}: Exception occurred when trying to close the browser: {str(e)}")
+            logging.exception(f"Account {self.serial_number}: Exception occurred when trying to close the browser: {str(e)}")
 
 class TelegramBotAutomation:
     def __init__(self, serial_number):
         self.serial_number = serial_number
         self.browser_manager = BrowserManager(serial_number)
-        print_with_time(f"Initializing automation for account {serial_number}")
+        logging.info(f"Initializing automation for account {serial_number}")
         self.browser_manager.start_browser()
         self.driver = self.browser_manager.driver
 
     def navigate_to_bot(self):
         self.driver.get("https://web.telegram.org/k/")
-        print_with_time(f"Account {self.serial_number}: Navigated to Telegram web.")
+        logging.info(f"Account {self.serial_number}: Navigated to Telegram web.")
 
     def send_message(self, message):
         chat_input_area = self.wait_for_element(By.XPATH, '/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[2]/input[1]')
@@ -67,7 +73,7 @@ class TelegramBotAutomation:
 
         search_area = self.wait_for_element(By.XPATH, '/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[3]/div[2]/div[2]/div[2]/div[1]/div[1]/div[1]/div[2]/ul[1]/a[1]/div[1]')
         search_area.click()
-        print_with_time(f"Account {self.serial_number}: Group searched.")
+        logging.info(f"Account {self.serial_number}: Group searched.")
 
     def click_link(self):
         link = self.wait_for_element(By.CSS_SELECTOR, "a[href*='t.me/BlumCryptoBot/app?startapp']")
@@ -75,14 +81,14 @@ class TelegramBotAutomation:
 
         launch_click = self.wait_for_element(By.XPATH, "/html[1]/body[1]/div[7]/div[1]/div[2]/button[1]/div[1]")
         launch_click.click()
-        print_with_time(f"Account {self.serial_number}: BLUM STARTED")
+        logging.info(f"Account {self.serial_number}: BLUM STARTED")
 
     def check_claim_button(self):
-        print_with_time(f"Account {self.serial_number}: Sleeping 30 seconds")
+        logging.info(f"Account {self.serial_number}: Sleeping 30 seconds")
         time.sleep(30)  
-        print_with_time(f"Account {self.serial_number}: Sleeping done")
+        logging.info(f"Account {self.serial_number}: Sleeping done")
         if not self.switch_to_iframe():
-            print_with_time(f"Account {self.serial_number}: No iframes found")
+            logging.info(f"Account {self.serial_number}: No iframes found")
             return
         
         initial_balance = self.check_balance()
@@ -102,7 +108,7 @@ class TelegramBotAutomation:
 
     def process_buttons(self):
         buttons = self.wait_for_elements(By.CSS_SELECTOR, ".farming-buttons-wrapper .kit-button")
-        print_with_time(f"Account {self.serial_number}: Found {len(buttons)} buttons")
+        logging.info(f"Account {self.serial_number}: Found {len(buttons)} buttons")
         for button in buttons:
             self.process_single_button(button)
 
@@ -125,25 +131,25 @@ class TelegramBotAutomation:
             return button.find_element(By.CSS_SELECTOR, ".label").text
 
     def handle_farming(self, button):
-        print_with_time(f"Account {self.serial_number}: Farming is active. The account is currently farming. Skipping this account.")
+        logging.info(f"Account {self.serial_number}: Farming is active. The account is currently farming. Skipping this account.")
         try:
             time_left = self.driver.find_element(By.CSS_SELECTOR, "div.time-left").text
-            print_with_time(f"Account {self.serial_number}: Remaining time to next claim opportunity: {time_left}")
+            logging.info(f"Account {self.serial_number}: Remaining time to next claim opportunity: {time_left}")
         except NoSuchElementException:
-            print_with_time(f"Account {self.serial_number}: Timer not found after detecting farming status.")
+            logging.warning(f"Account {self.serial_number}: Timer not found after detecting farming status.")
 
     def start_farming(self, button):
         button.click()
-        print_with_time(f"Account {self.serial_number}: Clicked on 'Start farming'. Sleep 30 seconds and checking status after:")
+        logging.info(f"Account {self.serial_number}: Clicked on 'Start farming'. Sleep 30 seconds and checking status after:")
         time.sleep(30)
         self.handle_farming(button)
         if not self.is_farming_active():
             raise Exception(f"Account {self.serial_number}: Farming did not start successfully.")
 
     def claim_tokens(self, button, amount_text):
-        print_with_time(f"Account {self.serial_number}: Account has {amount_text} claimable tokens. Trying to claim.")
+        logging.info(f"Account {self.serial_number}: Account has {amount_text} claimable tokens. Trying to claim.")
         button.click() 
-        print_with_time(f"Account {self.serial_number}: Click successful. 10s sleep, waiting for button to update to 'Start Farming'...")
+        logging.info(f"Account {self.serial_number}: Click successful. 10s sleep, waiting for button to update to 'Start Farming'...")
         time.sleep(10)
   
         WebDriverWait(self.driver, 10).until(
@@ -152,14 +158,14 @@ class TelegramBotAutomation:
 
         start_farming_button = self.wait_for_element(By.CSS_SELECTOR, ".label")
         start_farming_button.click() 
-        print_with_time(f"Account {self.serial_number}: Second click successful on 'Start farming'. Check status after:")
+        logging.info(f"Account {self.serial_number}: Second click successful on 'Start farming'. Check status after:")
         time.sleep(30)
         self.handle_farming(start_farming_button)
         if not self.is_farming_active():
             raise Exception(f"Account {self.serial_number}: Farming did not start successfully.")
 
     def check_balance(self):
-        print_with_time(f"Account {self.serial_number}: Trying to get total balance")
+        logging.info(f"Account {self.serial_number}: Trying to get total balance")
         try:
             iframes = self.driver.find_elements(By.TAG_NAME, "iframe")
             if iframes:
@@ -169,11 +175,11 @@ class TelegramBotAutomation:
                 EC.visibility_of_all_elements_located((By.CSS_SELECTOR, "div.profile-with-balance .kit-counter-animation.value .el-char-wrapper .el-char"))
             )
             balance = ''.join([element.text for element in balance_elements])
-            print_with_time(f"Account {self.serial_number}: Current balance: {balance}")
+            logging.info(f"Account {self.serial_number}: Current balance: {balance}")
             return float(balance.replace(',', ''))
 
         except TimeoutException:
-            print_with_time(f"Account {self.serial_number}: Failed to find the balance element.")
+            logging.warning(f"Account {self.serial_number}: Failed to find the balance element.")
             return None
 
     def wait_for_element(self, by, value, timeout=10):
@@ -210,29 +216,29 @@ def process_accounts():
                     bot.send_message("https://t.me/retg54erg45g4e")
                     bot.click_link()
                     bot.check_claim_button()
-                    print_with_time(f"Account {account}: Processing completed successfully.")
+                    logging.info(f"Account {account}: Processing completed successfully.")
                     success = True  
                 except Exception as e:
-                    print_with_time(f"Account {account}: Error occurred on attempt {retry_count + 1}: {e}")
+                    logging.warning(f"Account {account}: Error occurred on attempt {retry_count + 1}: {e}")
                     retry_count += 1  
                 finally:
-                    print_with_time("-------------END-----------")
+                    logging.info("-------------END-----------")
                     bot.browser_manager.close_browser()
                     time.sleep(5)
                 
                 if retry_count >= 3:
-                    print_with_time(f"Account {account}: Failed after 3 attempts.")
+                    logging.warning(f"Account {account}: Failed after 3 attempts.")
 
             if not success:
-                print_with_time(f"Account {account}: Moving to next account after 3 failed attempts.")
+                logging.warning(f"Account {account}: Moving to next account after 3 failed attempts.")
                 continue 
 
-        print_with_time("All accounts processed. Waiting 8 hours and 5 minutes before restarting.")
+        logging.info("All accounts processed. Waiting 8 hours and 5 minutes before restarting.")
         for minute in range(485): 
             if minute % 60 == 0:  
                 hours_left = (485 - minute) // 60
                 minutes_left = (485 - minute) % 60
-                print_with_time(f"Waiting... {hours_left} hours and {minutes_left} minutes left till restart.")
+                logging.info(f"Waiting... {hours_left} hours and {minutes_left} minutes left till restart.")
             time.sleep(60)
 
 if __name__ == "__main__":
