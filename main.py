@@ -158,7 +158,7 @@ class TelegramBotAutomation:
 
         start_farming_button = self.wait_for_element(By.CSS_SELECTOR, ".label")
         start_farming_button.click() 
-        logging.info(f"Account {self.serial_number}: Second click successful on 'Start farming'. Check status after:")
+        logging.info(f"Account {self.serial_number}: Second click successful on 'Start farming'. Check status after 30s delay:")
         time.sleep(30)
         self.handle_farming(start_farming_button)
         if not self.is_farming_active():
