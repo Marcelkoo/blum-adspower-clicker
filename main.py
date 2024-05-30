@@ -20,7 +20,7 @@ class BrowserManager:
         try:
             response = requests.get(
                 'http://local.adspower.net:50325/api/v1/browser/start', 
-                params={'serial_number': self.serial_number, 'headless': 0, 'screen_resolution': '1280_720'} 
+                params={'serial_number': self.serial_number, 'headless': 0} 
             )
             data = response.json()
             if data['code'] == 0:
@@ -28,9 +28,9 @@ class BrowserManager:
                 webdriver_path = data['data']['webdriver']
                 chrome_options = Options()
                 chrome_options.add_experimental_option("debuggerAddress", selenium_address)
-                chrome_options.add_argument("--window-size=1280,720") 
                 service = Service(executable_path=webdriver_path)
                 self.driver = webdriver.Chrome(service=service, options=chrome_options)
+                self.driver.set_window_size(600, 720)  
                 logging.info(f"Account {self.serial_number}: Browser started successfully.")
                 self.close_unwanted_tabs()
                 return True
@@ -51,7 +51,6 @@ class BrowserManager:
                     logging.info(f"Account {self.serial_number}: Closed unwanted tab with URL {unwanted_url}.")
         except Exception as e:
             logging.exception(f"Account {self.serial_number}: Exception in closing unwanted tabs: {str(e)}")
-
 
     def close_browser(self):
         try:
@@ -80,7 +79,6 @@ class TelegramBotAutomation:
         self.driver.switch_to.window(self.driver.window_handles[-1]) 
         logging.info(f"Account {self.serial_number}: Navigated to Telegram web.")
 
-
     def send_message(self, message):
         chat_input_area = self.wait_for_element(By.XPATH, '/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[2]/input[1]')
         chat_input_area.click()
@@ -94,7 +92,7 @@ class TelegramBotAutomation:
         link = self.wait_for_element(By.CSS_SELECTOR, "a[href*='t.me/BlumCryptoBot/app?startapp']")
         link.click()
 
-        launch_click = self.wait_for_element(By.XPATH, "/html[1]/body[1]/div[7]/div[1]/div[2]/button[1]/div[1]")
+        launch_click = self.wait_for_element(By.XPATH, "/html[1]/body[1]/div[6]/div[1]/div[2]/button[1]/div[1]")
         launch_click.click()
         logging.info(f"Account {self.serial_number}: BLUM STARTED")
 
