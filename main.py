@@ -20,7 +20,7 @@ class BrowserManager:
         try:
             response = requests.get(
                 'http://local.adspower.net:50325/api/v1/browser/start', 
-                params={'serial_number': self.serial_number, 'headless': 0} 
+                params={'serial_number': self.serial_number, 'headless': 0}
             )
             data = response.json()
             if data['code'] == 0:
@@ -30,9 +30,9 @@ class BrowserManager:
                 chrome_options.add_experimental_option("debuggerAddress", selenium_address)
                 service = Service(executable_path=webdriver_path)
                 self.driver = webdriver.Chrome(service=service, options=chrome_options)
-                self.driver.set_window_size(600, 720)  
+                self.driver.set_window_size(600, 720) 
                 logging.info(f"Account {self.serial_number}: Browser started successfully.")
-                self.close_unwanted_tabs()
+                self.close_unwanted_tabs() 
                 return True
             else:
                 logging.warning(f"Account {self.serial_number}: Failed to start the browser. Error: {data['msg']}")
@@ -42,13 +42,22 @@ class BrowserManager:
             return False
 
     def close_unwanted_tabs(self):
-        unwanted_url = "https://app.requestly.io/rules/my-rules?updatedToMV3"
+        unwanted_urls = [
+            "https://app.requestly.io/rules/my-rules?updatedToMV3",
+            "https://app.requestly.io"
+        ]
         try:
-            for handle in self.driver.window_handles:
+            current_handles = self.driver.window_handles
+            handles_to_keep = set(self.driver.window_handles)
+            for handle in current_handles:
                 self.driver.switch_to.window(handle)
-                if self.driver.current_url == unwanted_url:
+                if self.driver.current_url in unwanted_urls:
                     self.driver.close()
-                    logging.info(f"Account {self.serial_number}: Closed unwanted tab with URL {unwanted_url}.")
+                    handles_to_keep.discard(handle)
+                    logging.info(f"Account {self.serial_number}: Closed unwanted tab with URL {self.driver.current_url}.")
+            
+            if not handles_to_keep:
+                self.driver.execute_script("window.open('about:blank', '_blank');")
         except Exception as e:
             logging.exception(f"Account {self.serial_number}: Exception in closing unwanted tabs: {str(e)}")
 
@@ -75,9 +84,23 @@ class TelegramBotAutomation:
         self.driver = self.browser_manager.driver
 
     def navigate_to_bot(self):
-        self.driver.execute_script("window.open('https://web.telegram.org/k/', '_blank');")  
-        self.driver.switch_to.window(self.driver.window_handles[-1]) 
-        logging.info(f"Account {self.serial_number}: Navigated to Telegram web.")
+        try:
+            self.browser_manager.close_unwanted_tabs()
+            self.driver.execute_script("window.open('https://web.telegram.org/k/', '_blank');")
+            new_tab_handle = self.driver.window_handles[-1]
+            self.driver.switch_to.window(new_tab_handle)
+
+            for handle in self.driver.window_handles:
+                if handle != new_tab_handle:
+                    self.driver.switch_to.window(handle)
+                    self.driver.close()
+
+            self.driver.switch_to.window(new_tab_handle)
+            logging.info(f"Account {self.serial_number}: Navigated to Telegram web.")
+
+        except Exception as e:
+            logging.exception(f"Account {self.serial_number}: Exception in navigating to Telegram bot: {str(e)}")
+            self.browser_manager.close_browser()
 
     def send_message(self, message):
         chat_input_area = self.wait_for_element(By.XPATH, '/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[2]/input[1]')
@@ -256,3 +279,4 @@ def process_accounts():
 
 if __name__ == "__main__":
     process_accounts()
+    
