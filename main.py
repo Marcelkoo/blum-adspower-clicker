@@ -21,7 +21,7 @@ class BrowserManager:
         try:
             response = requests.get(
                 'http://local.adspower.net:50325/api/v1/browser/start', 
-                params={'serial_number': self.serial_number, 'headless': 1}
+                params={'serial_number': self.serial_number, 'headless': 0, 'screen_resolution': '1280_720'}  # headless set to 0 and screen_resolution set to 1280x720
             )
             data = response.json()
             if data['code'] == 0:
@@ -29,6 +29,7 @@ class BrowserManager:
                 webdriver_path = data['data']['webdriver']
                 chrome_options = Options()
                 chrome_options.add_experimental_option("debuggerAddress", selenium_address)
+                chrome_options.add_argument("--window-size=1280,720")  # Set window size
                 service = Service(executable_path=webdriver_path)
                 self.driver = webdriver.Chrome(service=service, options=chrome_options)
                 logging.info(f"Account {self.serial_number}: Browser started successfully.")
@@ -63,6 +64,8 @@ class TelegramBotAutomation:
         self.driver = self.browser_manager.driver
 
     def navigate_to_bot(self):
+        self.driver.execute_script("window.open('');")  # Open a new tab
+        self.driver.switch_to.window(self.driver.window_handles[-1])  # Switch to the new tab
         self.driver.get("https://web.telegram.org/k/")
         logging.info(f"Account {self.serial_number}: Navigated to Telegram web.")
 
