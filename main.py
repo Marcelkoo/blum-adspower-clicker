@@ -7,7 +7,7 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import TimeoutException, NoSuchElementException
+from selenium.common.exceptions import TimeoutException, NoSuchElementException, NoSuchWindowException
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s: %(levelname)s: %(message)s')
 
@@ -51,11 +51,16 @@ class BrowserManager:
             handles_to_keep = set(self.driver.window_handles)
             for handle in current_handles:
                 self.driver.switch_to.window(handle)
-                if self.driver.current_url in unwanted_urls:
-                    self.driver.close()
-                    handles_to_keep.discard(handle)
-                    logging.info(f"Account {self.serial_number}: Closed unwanted tab with URL {self.driver.current_url}.")
-            
+                try:
+                    current_url = self.driver.current_url
+                    if current_url in unwanted_urls:
+                        self.driver.close()
+                        handles_to_keep.discard(handle)
+                        logging.info(f"Account {self.serial_number}: Closed unwanted tab with URL {current_url}.")
+                except NoSuchWindowException:
+                    logging.warning(f"Account {self.serial_number}: No such window, likely already closed.")
+                    continue 
+                
             if not handles_to_keep:
                 self.driver.execute_script("window.open('about:blank', '_blank');")
         except Exception as e:
