@@ -9,7 +9,6 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException, NoSuchElementException
 
-# Set up logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s: %(levelname)s: %(message)s')
 
 class BrowserManager:
@@ -29,10 +28,11 @@ class BrowserManager:
                 webdriver_path = data['data']['webdriver']
                 chrome_options = Options()
                 chrome_options.add_experimental_option("debuggerAddress", selenium_address)
-                chrome_options.add_argument("--window-size=1280,720")  # Set window size
+                chrome_options.add_argument("--window-size=1280,720") 
                 service = Service(executable_path=webdriver_path)
                 self.driver = webdriver.Chrome(service=service, options=chrome_options)
                 logging.info(f"Account {self.serial_number}: Browser started successfully.")
+                self.close_unwanted_tabs()
                 return True
             else:
                 logging.warning(f"Account {self.serial_number}: Failed to start the browser. Error: {data['msg']}")
@@ -40,6 +40,18 @@ class BrowserManager:
         except Exception as e:
             logging.exception(f"Account {self.serial_number}: Exception in starting browser: {str(e)}")
             return False
+
+    def close_unwanted_tabs(self):
+        unwanted_url = "https://app.requestly.io/rules/my-rules?updatedToMV3"
+        try:
+            for handle in self.driver.window_handles:
+                self.driver.switch_to.window(handle)
+                if self.driver.current_url == unwanted_url:
+                    self.driver.close()
+                    logging.info(f"Account {self.serial_number}: Closed unwanted tab with URL {unwanted_url}.")
+        except Exception as e:
+            logging.exception(f"Account {self.serial_number}: Exception in closing unwanted tabs: {str(e)}")
+
 
     def close_browser(self):
         try:
@@ -64,10 +76,10 @@ class TelegramBotAutomation:
         self.driver = self.browser_manager.driver
 
     def navigate_to_bot(self):
-        self.driver.execute_script("window.open('');")  
-        self.driver.switch_to.window(self.driver.window_handles[-1])  
-        self.driver.get("https://web.telegram.org/k/")
+        self.driver.execute_script("window.open('https://web.telegram.org/k/', '_blank');")  
+        self.driver.switch_to.window(self.driver.window_handles[-1]) 
         logging.info(f"Account {self.serial_number}: Navigated to Telegram web.")
+
 
     def send_message(self, message):
         chat_input_area = self.wait_for_element(By.XPATH, '/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[2]/input[1]')
