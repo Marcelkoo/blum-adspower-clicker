@@ -7,7 +7,7 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import TimeoutException, NoSuchElementException, NoSuchWindowException
+from selenium.common.exceptions import TimeoutException, NoSuchElementException, WebDriverException
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s: %(levelname)s: %(message)s')
 
@@ -15,12 +15,32 @@ class BrowserManager:
     def __init__(self, serial_number):
         self.serial_number = serial_number
         self.driver = None
+    
+    def check_browser_status(self):
+        try:
+            response = requests.get(
+                'http://local.adspower.net:50325/api/v1/browser/active',
+                params={'serial_number': self.serial_number}
+            )
+            data = response.json()
+            if data['code'] == 0 and data['data']['status'] == 'Active':
+                logging.info(f"Account {self.serial_number}: Browser is already active.")
+                return True
+            else:
+                return False
+        except Exception as e:
+            logging.exception(f"Account {self.serial_number}: Exception in checking browser status: {str(e)}")
+            return False
 
     def start_browser(self):
         try:
+            if self.check_browser_status():
+                logging.info(f"Account {self.serial_number}: Browser already open. Closing the existing browser.")
+                self.close_browser()
+
             response = requests.get(
-                'http://local.adspower.net:50325/api/v1/browser/start', 
-                params={'serial_number': self.serial_number, 'headless': 0}
+                'http://local.adspower.net:50325/api/v1/browser/start',
+                params={'serial_number': self.serial_number, 'ip_tab': 0}
             )
             data = response.json()
             if data['code'] == 0:
@@ -28,11 +48,11 @@ class BrowserManager:
                 webdriver_path = data['data']['webdriver']
                 chrome_options = Options()
                 chrome_options.add_experimental_option("debuggerAddress", selenium_address)
+
                 service = Service(executable_path=webdriver_path)
                 self.driver = webdriver.Chrome(service=service, options=chrome_options)
-                self.driver.set_window_size(600, 720) 
+                self.driver.set_window_size(600, 720)
                 logging.info(f"Account {self.serial_number}: Browser started successfully.")
-                self.close_unwanted_tabs() 
                 return True
             else:
                 logging.warning(f"Account {self.serial_number}: Failed to start the browser. Error: {data['msg']}")
@@ -41,44 +61,31 @@ class BrowserManager:
             logging.exception(f"Account {self.serial_number}: Exception in starting browser: {str(e)}")
             return False
 
-    def close_unwanted_tabs(self):
-        unwanted_urls = [
-            "https://app.requestly.io/rules/my-rules?updatedToMV3",
-            "https://app.requestly.io"
-        ]
-        try:
-            current_handles = self.driver.window_handles
-            handles_to_keep = set(self.driver.window_handles)
-            for handle in current_handles:
-                self.driver.switch_to.window(handle)
-                try:
-                    current_url = self.driver.current_url
-                    if current_url in unwanted_urls:
-                        self.driver.close()
-                        handles_to_keep.discard(handle)
-                        logging.info(f"Account {self.serial_number}: Closed unwanted tab with URL {current_url}.")
-                except NoSuchWindowException:
-                    logging.warning(f"Account {self.serial_number}: No such window, likely already closed.")
-                    continue 
-                
-            if not handles_to_keep:
-                self.driver.execute_script("window.open('about:blank', '_blank');")
-        except Exception as e:
-            logging.exception(f"Account {self.serial_number}: Exception in closing unwanted tabs: {str(e)}")
-
     def close_browser(self):
         try:
-            response = requests.get(
-                'http://local.adspower.net:50325/api/v1/browser/stop', 
-                params={'serial_number': self.serial_number}
-            )
-            data = response.json()
-            if data['code'] == 0:
-                logging.info(f"Account {self.serial_number}: Browser closed successfully.")
-            else:
-                logging.warning(f"Account {self.serial_number}: Failed to close the browser. Error: {data['msg']}")
+            if self.driver:
+                try:
+                    self.driver.close()
+                    self.driver.quit()
+                    self.driver = None  
+                    logging.info(f"Account {self.serial_number}: Browser closed successfully.")
+                except WebDriverException as e:
+                    logging.info(f"Account {self.serial_number}: exception, Browser should be closed now")
         except Exception as e:
-            logging.exception(f"Account {self.serial_number}: Exception occurred when trying to close the browser: {str(e)}")
+            logging.exception(f"Account {self.serial_number}: General Exception occurred when trying to close the browser: {str(e)}")
+        finally:
+            try:
+                response = requests.get(
+                    'http://local.adspower.net:50325/api/v1/browser/stop',
+                    params={'serial_number': self.serial_number}
+                )
+                data = response.json()
+                if data['code'] == 0:
+                    logging.info(f"Account {self.serial_number}: Browser closed successfully.")
+                else:
+                    logging.info(f"Account {self.serial_number}: exception, Browser should be closed now")
+            except Exception as e:
+                logging.exception(f"Account {self.serial_number}: Exception occurred when trying to close the browser: {str(e)}")
 
 class TelegramBotAutomation:
     def __init__(self, serial_number):
@@ -90,19 +97,8 @@ class TelegramBotAutomation:
 
     def navigate_to_bot(self):
         try:
-            self.browser_manager.close_unwanted_tabs()
-            self.driver.execute_script("window.open('https://web.telegram.org/k/', '_blank');")
-            new_tab_handle = self.driver.window_handles[-1]
-            self.driver.switch_to.window(new_tab_handle)
-
-            for handle in self.driver.window_handles:
-                if handle != new_tab_handle:
-                    self.driver.switch_to.window(handle)
-                    self.driver.close()
-
-            self.driver.switch_to.window(new_tab_handle)
+            self.driver.get('https://web.telegram.org/k/')
             logging.info(f"Account {self.serial_number}: Navigated to Telegram web.")
-
         except Exception as e:
             logging.exception(f"Account {self.serial_number}: Exception in navigating to Telegram bot: {str(e)}")
             self.browser_manager.close_browser()
@@ -120,14 +116,24 @@ class TelegramBotAutomation:
         link = self.wait_for_element(By.CSS_SELECTOR, "a[href*='t.me/BlumCryptoBot/app?startapp']")
         link.click()
 
-        launch_click = self.wait_for_element(By.XPATH, "/html[1]/body[1]/div[6]/div[1]/div[2]/button[1]/div[1]")
+        launch_click = self.wait_for_element(By.XPATH, "//body/div[@class='popup popup-peer popup-confirmation active']/div[@class='popup-container z-depth-1']/div[@class='popup-buttons']/button[1]/div[1]")
         launch_click.click()
-        logging.info(f"Account {self.serial_number}: BLUM STARTED")
+        logging.info(f"Account {self.serial_number}: BLUM STARTED, waiting 15 seconds for daily reward button")
+        time.sleep(15)
+        if not self.switch_to_iframe():
+            logging.info(f"Account {self.serial_number}: No iframes found")
+            return
+
+        try:
+            daily_reward_button = WebDriverWait(self.driver, 1).until(
+                EC.element_to_be_clickable((By.XPATH, "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[2]/div[2]/div[3]/button[1]"))
+            )
+            daily_reward_button.click()
+            logging.info(f"Account {self.serial_number}: Daily reward claimed.")
+        except TimeoutException:
+            logging.info(f"Account {self.serial_number}: Daily reward has already been claimed or button not found.")
 
     def check_claim_button(self):
-        logging.info(f"Account {self.serial_number}: Sleeping 30 seconds")
-        time.sleep(30)  
-        logging.info(f"Account {self.serial_number}: Sleeping done")
         if not self.switch_to_iframe():
             logging.info(f"Account {self.serial_number}: No iframes found")
             return
@@ -199,8 +205,8 @@ class TelegramBotAutomation:
 
         start_farming_button = self.wait_for_element(By.CSS_SELECTOR, ".label")
         start_farming_button.click() 
-        logging.info(f"Account {self.serial_number}: Second click successful on 'Start farming'. Check status after 30s delay:")
-        time.sleep(30)
+        logging.info(f"Account {self.serial_number}: Second click successful on 'Start farming'. Check status after 10s delay:")
+        time.sleep(10)
         self.handle_farming(start_farming_button)
         if not self.is_farming_active():
             raise Exception(f"Account {self.serial_number}: Farming did not start successfully.")
@@ -224,15 +230,15 @@ class TelegramBotAutomation:
             return None
 
     def wait_for_element(self, by, value, timeout=10):
-        return WebDriverWait(self.driver, timeout).until(
-            EC.element_to_be_clickable((by, value))
-        )
+            return WebDriverWait(self.driver, timeout).until(
+                EC.element_to_be_clickable((by, value))
+            )
 
     def wait_for_elements(self, by, value, timeout=10):
         return WebDriverWait(self.driver, timeout).until(
             EC.visibility_of_all_elements_located((by, value))
         )
-    
+
     def is_farming_active(self):
         try:
             self.driver.find_element(By.CSS_SELECTOR, "div.time-left")
@@ -274,14 +280,10 @@ def process_accounts():
                 logging.warning(f"Account {account}: Moving to next account after 3 failed attempts.")
                 continue 
 
-        logging.info("All accounts processed. Waiting 8 hours and 5 minutes before restarting.")
-        for minute in range(485): 
-            if minute % 60 == 0:  
-                hours_left = (485 - minute) // 60
-                minutes_left = (485 - minute) % 60
-                logging.info(f"Waiting... {hours_left} hours and {minutes_left} minutes left till restart.")
-            time.sleep(60)
+        logging.info("All accounts processed. Waiting 8 hours before restarting.")
+        for hour in range(8):
+            logging.info(f"Waiting... {8 - hour} hours left till restart.")
+            time.sleep(60 * 60) 
 
 if __name__ == "__main__":
     process_accounts()
-    
