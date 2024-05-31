@@ -1,6 +1,9 @@
 import requests
+import os
 import time
 import logging
+import json
+import random
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
@@ -9,7 +12,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException, NoSuchElementException, WebDriverException
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s: %(levelname)s: %(message)s')
+logging.basicConfig(level=logging.INFO, format='%(asctime)s: %(message)s')
 
 class BrowserManager:
     def __init__(self, serial_number):
@@ -38,10 +41,17 @@ class BrowserManager:
                 logging.info(f"Account {self.serial_number}: Browser already open. Closing the existing browser.")
                 self.close_browser()
 
-            response = requests.get(
-                'http://local.adspower.net:50325/api/v1/browser/start',
-                params={'serial_number': self.serial_number, 'ip_tab': 0}
+            script_dir = os.path.dirname(os.path.abspath(__file__))
+            requestly_extension_path = os.path.join(script_dir, 'blum_unlocker_extension')
+
+            launch_args = json.dumps(["--headless=new", f"--load-extension={requestly_extension_path}"])
+
+            request_url = (
+                f'http://local.adspower.net:50325/api/v1/browser/start?'
+                f'serial_number={self.serial_number}&ip_tab=0&headless=1&launch_args={launch_args}'
             )
+
+            response = requests.get(request_url)
             data = response.json()
             if data['code'] == 0:
                 selenium_address = data['data']['ws']['selenium']
@@ -118,8 +128,10 @@ class TelegramBotAutomation:
 
         launch_click = self.wait_for_element(By.XPATH, "//body/div[@class='popup popup-peer popup-confirmation active']/div[@class='popup-container z-depth-1']/div[@class='popup-buttons']/button[1]/div[1]")
         launch_click.click()
-        logging.info(f"Account {self.serial_number}: BLUM STARTED, waiting 15 seconds for daily reward button")
-        time.sleep(15)
+        logging.info(f"Account {self.serial_number}: BLUM STARTED")
+        sleep_time = random.randint(20, 30)
+        logging.info(f"Sleeping for {sleep_time} seconds.")
+        time.sleep(sleep_time)
         if not self.switch_to_iframe():
             logging.info(f"Account {self.serial_number}: No iframes found")
             return
@@ -187,13 +199,18 @@ class TelegramBotAutomation:
 
     def start_farming(self, button):
         button.click()
-        logging.info(f"Account {self.serial_number}: Clicked on 'Start farming'. Sleep 30 seconds and checking status after:")
-        time.sleep(30)
+        logging.info(f"Account {self.serial_number}: Clicked on 'Start farming'.")
+        sleep_time = random.randint(20, 30)
+        logging.info(f"Sleeping for {sleep_time} seconds.")
+        time.sleep(sleep_time)
         self.handle_farming(button)
         if not self.is_farming_active():
             raise Exception(f"Account {self.serial_number}: Farming did not start successfully.")
 
     def claim_tokens(self, button, amount_text):
+        sleep_time = random.randint(5, 15)
+        logging.info(f"Sleeping for {sleep_time} seconds.")
+        time.sleep(sleep_time)
         logging.info(f"Account {self.serial_number}: Account has {amount_text} claimable tokens. Trying to claim.")
         button.click() 
         logging.info(f"Account {self.serial_number}: Click successful. 10s sleep, waiting for button to update to 'Start Farming'...")
@@ -205,8 +222,10 @@ class TelegramBotAutomation:
 
         start_farming_button = self.wait_for_element(By.CSS_SELECTOR, ".label")
         start_farming_button.click() 
-        logging.info(f"Account {self.serial_number}: Second click successful on 'Start farming'. Check status after 10s delay:")
-        time.sleep(10)
+        logging.info(f"Account {self.serial_number}: Second click successful on 'Start farming'")
+        sleep_time = random.randint(5, 15)
+        logging.info(f"Sleeping for {sleep_time} seconds.")
+        time.sleep(sleep_time)
         self.handle_farming(start_farming_button)
         if not self.is_farming_active():
             raise Exception(f"Account {self.serial_number}: Farming did not start successfully.")
@@ -223,6 +242,9 @@ class TelegramBotAutomation:
             )
             balance = ''.join([element.text for element in balance_elements])
             logging.info(f"Account {self.serial_number}: Current balance: {balance}")
+            sleep_time = random.randint(5, 15)
+            logging.info(f"Sleeping for {sleep_time} seconds.")
+            time.sleep(sleep_time)
             return float(balance.replace(',', ''))
 
         except TimeoutException:
@@ -250,9 +272,17 @@ def read_accounts_from_file():
     with open('accounts.txt', 'r') as file:
         return [line.strip() for line in file.readlines()]
 
+def write_accounts_to_file(accounts):
+    with open('accounts.txt', 'w') as file:
+        for account in accounts:
+            file.write(f"{account}\n")
+
 def process_accounts():
     while True: 
         accounts = read_accounts_from_file()
+        random.shuffle(accounts)
+        write_accounts_to_file(accounts)
+
         for account in accounts:
             retry_count = 0
             success = False
@@ -272,7 +302,9 @@ def process_accounts():
                     logging.info("-------------END-----------")
                     bot.browser_manager.close_browser()
                     logging.info("-------------END-----------")
-                    time.sleep(5)
+                    sleep_time = random.randint(5, 15)
+                    logging.info(f"Sleeping for {sleep_time} seconds.")
+                    time.sleep(sleep_time)
                 
                 if retry_count >= 3:
                     logging.warning(f"Account {account}: Failed after 3 attempts.")
@@ -285,6 +317,8 @@ def process_accounts():
         for hour in range(8):
             logging.info(f"Waiting... {8 - hour} hours left till restart.")
             time.sleep(60 * 60) 
+
+        logging.info("Shuffling accounts for the next cycle.")
 
 if __name__ == "__main__":
     process_accounts()
