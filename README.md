@@ -15,9 +15,9 @@
 ## Обязательное расширение
 
 ***Чтобы у вас работал софт, вам нужно установить расширение в AdsPower.*** 
-В папке с софтом есть папка BLUM-UNLOCKER - это и есть само расширение. Нам надо его поставить в адс. Переходим в AdsPower:
+В папке с софтом есть архив BLUM-UNLOCKER - это и есть само расширение. Нам надо его поставить в адс. Переходим в AdsPower:
 1. Extensions -> Upload Extensions
-2. Upload File -> Installation package: Upload Extension (Выбираем скачанную папку BLUM-UNLOCKER, указываем любое название для Extension Name и нажимаем OK).
+2. Upload File -> Installation package: Upload Extension (Выбираем скачанный архив BLUM-UNLOCKER, указываем любое название для Extension Name и нажимаем OK).
 3. Profit, теперь блюм можно открывать с пк в веб версии тг.
 
 ## Что нужно для работы
