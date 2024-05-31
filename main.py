@@ -271,6 +271,7 @@ def process_accounts():
                 finally:
                     logging.info("-------------END-----------")
                     bot.browser_manager.close_browser()
+                    logging.info("-------------END-----------")
                     time.sleep(5)
                 
                 if retry_count >= 3:
