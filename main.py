@@ -40,6 +40,7 @@ class BrowserManager:
             if self.check_browser_status():
                 logging.info(f"Account {self.serial_number}: Browser already open. Closing the existing browser.")
                 self.close_browser()
+                time.sleep(5)
 
             script_dir = os.path.dirname(os.path.abspath(__file__))
             requestly_extension_path = os.path.join(script_dir, 'blum_unlocker_extension')
@@ -48,7 +49,7 @@ class BrowserManager:
 
             request_url = (
                 f'http://local.adspower.net:50325/api/v1/browser/start?'
-                f'serial_number={self.serial_number}&ip_tab=0&headless=1&launch_args={launch_args}'
+                f'serial_number={self.serial_number}&ip_tab=1&headless=1&launch_args={launch_args}'
             )
 
             response = requests.get(request_url)
@@ -142,6 +143,7 @@ class TelegramBotAutomation:
             )
             daily_reward_button.click()
             logging.info(f"Account {self.serial_number}: Daily reward claimed.")
+            time.sleep(2)
         except TimeoutException:
             logging.info(f"Account {self.serial_number}: Daily reward has already been claimed or button not found.")
 
@@ -212,6 +214,29 @@ class TelegramBotAutomation:
         logging.info(f"Sleeping for {sleep_time} seconds.")
         time.sleep(sleep_time)
         logging.info(f"Account {self.serial_number}: Account has {amount_text} claimable tokens. Trying to claim.")
+
+        # CHECK FOR IMG BUTTON 1
+        try:
+            img1_button = WebDriverWait(self.driver, 1).until(
+                EC.element_to_be_clickable((By.XPATH, "/html[1]/body[1]/div[1]/div[1]/div[1]/div[2]/img[2]"))
+            )
+            img1_button.click()
+            logging.info(f"Account {self.serial_number}: New event image №1 clicked")
+            time.sleep(2)
+        except TimeoutException:
+            logging.warning(f"Account {self.serial_number}: img1_button not found. Skipping...")
+
+        # CHECK FOR IMG BUTTON 2
+        try:
+            img2_button = WebDriverWait(self.driver, 1).until(
+                EC.element_to_be_clickable((By.XPATH, "/html[1]/body[1]/div[1]/div[1]/div[1]/div[2]/img[1]"))
+            )
+            img2_button.click()
+            logging.info(f"Account {self.serial_number}: New event image №2 clicked")
+            time.sleep(2)
+        except TimeoutException:
+            logging.warning(f"Account {self.serial_number}: img2_button not found. Skipping...")
+        
         button.click() 
         logging.info(f"Account {self.serial_number}: Click successful. 10s sleep, waiting for button to update to 'Start Farming'...")
         time.sleep(10)
@@ -316,7 +341,7 @@ def process_accounts():
         logging.info("All accounts processed. Waiting 8 hours before restarting.")
         for hour in range(8):
             logging.info(f"Waiting... {8 - hour} hours left till restart.")
-            time.sleep(60 * 60) 
+            time.sleep(60 * 60)  
 
         logging.info("Shuffling accounts for the next cycle.")
 
