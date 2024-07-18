@@ -168,7 +168,7 @@ class TelegramBotAutomation:
         return False
 
     def process_buttons(self):
-        buttons = self.wait_for_elements(By.CSS_SELECTOR, ".farming-buttons-wrapper .kit-button")
+        buttons = self.wait_for_elements(By.CSS_SELECTOR, "div.index-farming-button")
         logging.info(f"Account {self.serial_number}: Found {len(buttons)} buttons")
         for button in buttons:
             self.process_single_button(button)
