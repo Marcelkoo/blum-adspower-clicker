@@ -168,10 +168,31 @@ class TelegramBotAutomation:
         return False
 
     def process_buttons(self):
-        buttons = self.wait_for_elements(By.CSS_SELECTOR, "div.index-farming-button")
-        logging.info(f"Account {self.serial_number}: Found {len(buttons)} buttons")
-        for button in buttons:
-            self.process_single_button(button)
+        parent_selector = "div.kit-fixed-wrapper.has-layout-tabs"
+
+        button_primary_selector = "button.kit-button.is-large.is-primary.is-fill.button"
+        button_done_selector = "button.kit-button.is-large.is-drop.is-fill.button.is-done"
+        button_secondary_selector = "button.kit-button.is-large.is-secondary.is-fill.is-centered.button.is-active"
+
+        parent_element = self.wait_for_element(By.CSS_SELECTOR, parent_selector)
+        
+        if parent_element:
+            primary_buttons = parent_element.find_elements(By.CSS_SELECTOR, button_primary_selector)
+            done_buttons = parent_element.find_elements(By.CSS_SELECTOR, button_done_selector)
+            secondary_buttons = parent_element.find_elements(By.CSS_SELECTOR, button_secondary_selector)
+            
+            #logging.info(f"Account {self.serial_number}: Found {len(primary_buttons)} default button")
+            #logging.info(f"Account {self.serial_number}: Found {len(done_buttons)} done button")
+            #logging.info(f"Account {self.serial_number}: Found {len(secondary_buttons)} active button")
+            
+            for button in primary_buttons:
+                self.process_single_button(button)
+            for button in done_buttons:
+                self.process_single_button(button)
+            for button in secondary_buttons:
+                self.process_single_button(button)
+        else:
+            logging.info(f"Account {self.serial_number}: Parent element not found.")
 
     def process_single_button(self, button):
         button_text = self.get_button_text(button)
@@ -192,7 +213,7 @@ class TelegramBotAutomation:
             return button.find_element(By.CSS_SELECTOR, ".label").text
 
     def handle_farming(self, button):
-        logging.info(f"Account {self.serial_number}: Farming is active. The account is currently farming. Skipping this account.")
+        logging.info(f"Account {self.serial_number}: Farming is active. The account is currently farming. Checking timer again.")
         try:
             time_left = self.driver.find_element(By.CSS_SELECTOR, "div.time-left").text
             logging.info(f"Account {self.serial_number}: Remaining time to next claim opportunity: {time_left}")
@@ -214,28 +235,6 @@ class TelegramBotAutomation:
         logging.info(f"Sleeping for {sleep_time} seconds.")
         time.sleep(sleep_time)
         logging.info(f"Account {self.serial_number}: Account has {amount_text} claimable tokens. Trying to claim.")
-
-        # CHECK FOR IMG BUTTON 1
-        try:
-            img1_button = WebDriverWait(self.driver, 1).until(
-                EC.element_to_be_clickable((By.XPATH, "/html[1]/body[1]/div[1]/div[1]/div[1]/div[2]/img[2]"))
-            )
-            img1_button.click()
-            logging.info(f"Account {self.serial_number}: New event image №1 clicked")
-            time.sleep(2)
-        except TimeoutException:
-            logging.warning(f"Account {self.serial_number}: img1_button not found. Skipping...")
-
-        # CHECK FOR IMG BUTTON 2
-        try:
-            img2_button = WebDriverWait(self.driver, 1).until(
-                EC.element_to_be_clickable((By.XPATH, "/html[1]/body[1]/div[1]/div[1]/div[1]/div[2]/img[1]"))
-            )
-            img2_button.click()
-            logging.info(f"Account {self.serial_number}: New event image №2 clicked")
-            time.sleep(2)
-        except TimeoutException:
-            logging.warning(f"Account {self.serial_number}: img2_button not found. Skipping...")
         
         button.click() 
         logging.info(f"Account {self.serial_number}: Click successful. 10s sleep, waiting for button to update to 'Start Farming'...")
@@ -251,6 +250,7 @@ class TelegramBotAutomation:
         sleep_time = random.randint(5, 15)
         logging.info(f"Sleeping for {sleep_time} seconds.")
         time.sleep(sleep_time)
+        self.process_buttons()
         self.handle_farming(start_farming_button)
         if not self.is_farming_active():
             raise Exception(f"Account {self.serial_number}: Farming did not start successfully.")
