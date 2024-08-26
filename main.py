@@ -306,9 +306,12 @@ def write_accounts_to_file(accounts):
             file.write(f"{account}\n")
 
 def process_accounts():
-    account_balances = []
+    last_processed_account = None
+    last_balance = 0.0
 
-    while True: 
+    while True:
+        account_balances = []
+
         accounts = read_accounts_from_file()
         random.shuffle(accounts)
         write_accounts_to_file(accounts)
@@ -348,23 +351,27 @@ def process_accounts():
 
             account_balances.append((account, balance))
 
+        if account_balances:
+            last_processed_account, last_balance = account_balances[-1]
+
         table = BeautifulTable()
         table.columns.header = ["Serial Number", "Balance"]
 
         total_balance = 0.0
         for serial_number, balance in account_balances:
-            formatted_balance = f"{balance:,.2f}"
-            table.rows.append([serial_number, formatted_balance])
+            table.rows.append([serial_number, balance])
             total_balance += balance
 
         logging.info("\n" + str(table))
         logging.info(f"Total Balance: {total_balance:,.2f}")
 
         logging.info("All accounts processed. Waiting 8 hours before restarting.")
+
         for hour in range(8):
             logging.info(f"Waiting... {8 - hour} hours left till restart.")
             time.sleep(60 * 60)  
 
+        account_balances = [(last_processed_account, last_balance)]
         logging.info("Shuffling accounts for the next cycle.")
 
 if __name__ == "__main__":
