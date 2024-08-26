@@ -4,6 +4,7 @@ import time
 import logging
 import json
 import random
+from beautifultable import BeautifulTable
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
@@ -150,7 +151,7 @@ class TelegramBotAutomation:
     def check_claim_button(self):
         if not self.switch_to_iframe():
             logging.info(f"Account {self.serial_number}: No iframes found")
-            return
+            return 0.0
         
         initial_balance = self.check_balance()
         self.process_buttons()
@@ -158,6 +159,8 @@ class TelegramBotAutomation:
 
         if final_balance is not None and initial_balance == final_balance and not self.is_farming_active():
             raise Exception(f"Account {self.serial_number}: Balance did not change after claiming tokens.")
+        
+        return final_balance if final_balance is not None else 0.0
 
     def switch_to_iframe(self):
         self.driver.switch_to.default_content()
@@ -274,7 +277,7 @@ class TelegramBotAutomation:
 
         except TimeoutException:
             logging.warning(f"Account {self.serial_number}: Failed to find the balance element.")
-            return None
+            return 0.0
 
     def wait_for_element(self, by, value, timeout=10):
             return WebDriverWait(self.driver, timeout).until(
@@ -303,6 +306,8 @@ def write_accounts_to_file(accounts):
             file.write(f"{account}\n")
 
 def process_accounts():
+    account_balances = []
+
     while True: 
         accounts = read_accounts_from_file()
         random.shuffle(accounts)
@@ -311,13 +316,15 @@ def process_accounts():
         for account in accounts:
             retry_count = 0
             success = False
+            balance = 0.0
+
             while retry_count < 3 and not success:
                 bot = TelegramBotAutomation(account)
                 try:
                     bot.navigate_to_bot()
                     bot.send_message("https://t.me/retg54erg45g4e")
                     bot.click_link()
-                    bot.check_claim_button()
+                    balance = bot.check_claim_button()
                     logging.info(f"Account {account}: Processing completed successfully.")
                     success = True  
                 except Exception as e:
@@ -333,10 +340,25 @@ def process_accounts():
                 
                 if retry_count >= 3:
                     logging.warning(f"Account {account}: Failed after 3 attempts.")
+                    balance = 0.0
 
             if not success:
                 logging.warning(f"Account {account}: Moving to next account after 3 failed attempts.")
-                continue 
+                balance = 0.0
+
+            account_balances.append((account, balance))
+
+        table = BeautifulTable()
+        table.columns.header = ["Serial Number", "Balance"]
+
+        total_balance = 0.0
+        for serial_number, balance in account_balances:
+            formatted_balance = f"{balance:,.2f}"
+            table.rows.append([serial_number, formatted_balance])
+            total_balance += balance
+
+        logging.info("\n" + str(table))
+        logging.info(f"Total Balance: {total_balance:,.2f}")
 
         logging.info("All accounts processed. Waiting 8 hours before restarting.")
         for hour in range(8):
