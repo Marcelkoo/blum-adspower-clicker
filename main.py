@@ -127,9 +127,10 @@ class TelegramBotAutomation:
     def click_link(self):
         link = self.wait_for_element(By.CSS_SELECTOR, "a[href*='t.me/BlumCryptoBot/app?startapp']")
         link.click()
-
-        launch_click = self.wait_for_element(By.XPATH, "//body/div[@class='popup popup-peer popup-confirmation active']/div[@class='popup-container z-depth-1']/div[@class='popup-buttons']/button[1]/div[1]")
-        launch_click.click()
+        
+        #После последней обновы 31.08.24 закомментил
+        #launch_click = self.wait_for_element(By.XPATH, "//body/div[@class='popup popup-peer popup-confirmation active']/div[@class='popup-container z-depth-1']/div[@class='popup-buttons']/button[1]/div[1]")
+        #launch_click.click()
         logging.info(f"Account {self.serial_number}: BLUM STARTED")
         sleep_time = random.randint(20, 30)
         logging.info(f"Sleeping for {sleep_time} seconds.")
