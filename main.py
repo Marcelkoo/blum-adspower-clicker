@@ -43,14 +43,9 @@ class BrowserManager:
                 self.close_browser()
                 time.sleep(5)
 
-            script_dir = os.path.dirname(os.path.abspath(__file__))
-            requestly_extension_path = os.path.join(script_dir, 'blum_unlocker_extension')
-
-            launch_args = json.dumps(["--headless=new", f"--load-extension={requestly_extension_path}"])
-
             request_url = (
                 f'http://local.adspower.net:50325/api/v1/browser/start?'
-                f'serial_number={self.serial_number}&ip_tab=1&headless=1&launch_args={launch_args}'
+                f'serial_number={self.serial_number}&ip_tab=1&headless=0'
             )
 
             response = requests.get(request_url)
@@ -123,18 +118,35 @@ class TelegramBotAutomation:
         search_area = self.wait_for_element(By.XPATH, '/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[3]/div[2]/div[2]/div[2]/div[1]/div[1]/div[1]/div[2]/ul[1]/a[1]/div[1]')
         search_area.click()
         logging.info(f"Account {self.serial_number}: Group searched.")
-
-    def click_link(self):
-        link = self.wait_for_element(By.CSS_SELECTOR, "a[href*='t.me/BlumCryptoBot/app?startapp']")
-        link.click()
-        
-        #После последней обновы 31.08.24 закомментил
-        #launch_click = self.wait_for_element(By.XPATH, "//body/div[@class='popup popup-peer popup-confirmation active']/div[@class='popup-container z-depth-1']/div[@class='popup-buttons']/button[1]/div[1]")
-        #launch_click.click()
-        logging.info(f"Account {self.serial_number}: BLUM STARTED")
-        sleep_time = random.randint(20, 30)
+        sleep_time = random.randint(5, 10)
         logging.info(f"Sleeping for {sleep_time} seconds.")
         time.sleep(sleep_time)
+
+    def click_link(self):
+        try:
+            link = self.wait_for_element(By.CSS_SELECTOR, "a[href*='t.me/BlumCryptoBot/app?startapp']")
+            link.click()
+        except NoSuchElementException:
+            logging.error(f"Account {self.serial_number}: Link not found.")
+            return
+        except WebDriverException as e:
+            logging.info(f"Account {self.serial_number}: has /k/ telegram version. all good.")
+            return
+
+        try:
+            launch_click = self.wait_for_element(By.XPATH, "//body/div[@class='popup popup-peer popup-confirmation active']/div[@class='popup-container z-depth-1']/div[@class='popup-buttons']/button[1]/div[1]")
+            launch_click.click()
+            logging.info(f"Account {self.serial_number}: Button clicked.")
+        except NoSuchElementException:
+            logging.info(f"Account {self.serial_number}: No confirmation popup found, continuing.")
+        except WebDriverException as e:
+            logging.error(f"Account {self.serial_number}: Error occurred while trying to click launch button. Trying to continue")
+
+        logging.info(f"Account {self.serial_number}: BLUM STARTED")
+        sleep_time = random.randint(15, 20)
+        logging.info(f"Sleeping for {sleep_time} seconds.")
+        time.sleep(sleep_time)
+
         if not self.switch_to_iframe():
             logging.info(f"Account {self.serial_number}: No iframes found")
             return
@@ -148,6 +160,10 @@ class TelegramBotAutomation:
             time.sleep(2)
         except TimeoutException:
             logging.info(f"Account {self.serial_number}: Daily reward has already been claimed or button not found.")
+        except WebDriverException as e:
+            logging.error(f"Account {self.serial_number}: Error occurred while trying to claim reward - {str(e)}")
+
+
 
     def check_claim_button(self):
         if not self.switch_to_iframe():
@@ -227,7 +243,7 @@ class TelegramBotAutomation:
     def start_farming(self, button):
         button.click()
         logging.info(f"Account {self.serial_number}: Clicked on 'Start farming'.")
-        sleep_time = random.randint(20, 30)
+        sleep_time = random.randint(40, 50)
         logging.info(f"Sleeping for {sleep_time} seconds.")
         time.sleep(sleep_time)
         self.handle_farming(button)
