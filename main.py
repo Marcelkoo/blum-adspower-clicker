@@ -203,9 +203,9 @@ class TelegramBotAutomation:
         amount_elements = button.find_elements(By.CSS_SELECTOR, "div.amount")
         amount_text = amount_elements[0].text if amount_elements else None
 
-        if "Farming" in button_text:
+        if "Farming" in button_text or "Фарминг" in button_text:
             self.handle_farming(button)
-        elif "Start farming" in button_text and not amount_text:
+        elif ("Start farming" in button_text or "Начать фарминг" in button_text) and not amount_text:
             self.start_farming(button)
         elif amount_text:
             self.claim_tokens(button, amount_text)
