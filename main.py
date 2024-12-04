@@ -152,7 +152,7 @@ class TelegramBotAutomation:
             return
         
         try:
-            home_screen_button = self.wait_for_element(By.XPATH, "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[2]/div[2]/div[1]/button[1]")
+            home_screen_button = self.wait_for_element(By.XPATH, "//a[@class='tab']//span[contains(text(), 'Home') or contains(text(), 'Главная')]")
             home_screen_button.click()
             logging.info(f"Account {self.serial_number}: Home screen button clicked.")
         except NoSuchElementException:
