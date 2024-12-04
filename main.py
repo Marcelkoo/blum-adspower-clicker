@@ -33,7 +33,7 @@ class BrowserManager:
             else:
                 return False
         except Exception as e:
-            logging.exception(f"Account {self.serial_number}: Exception in checking browser status: {str(e)}")
+            logging.exception(f"Account {self.serial_number}: Exception in checking browser status")
             return False
 
     def start_browser(self):
@@ -65,7 +65,7 @@ class BrowserManager:
                 logging.warning(f"Account {self.serial_number}: Failed to start the browser. Error: {data['msg']}")
                 return False
         except Exception as e:
-            logging.exception(f"Account {self.serial_number}: Exception in starting browser: {str(e)}")
+            logging.exception(f"Account {self.serial_number}: Exception in starting browser")
             return False
 
     def close_browser(self):
@@ -79,7 +79,7 @@ class BrowserManager:
                 except WebDriverException as e:
                     logging.info(f"Account {self.serial_number}: exception, Browser should be closed now")
         except Exception as e:
-            logging.exception(f"Account {self.serial_number}: General Exception occurred when trying to close the browser: {str(e)}")
+            logging.exception(f"Account {self.serial_number}: General Exception occurred when trying to close the browser")
         finally:
             try:
                 response = requests.get(
@@ -92,7 +92,7 @@ class BrowserManager:
                 else:
                     logging.info(f"Account {self.serial_number}: exception, Browser should be closed now")
             except Exception as e:
-                logging.exception(f"Account {self.serial_number}: Exception occurred when trying to close the browser: {str(e)}")
+                logging.exception(f"Account {self.serial_number}: Exception occurred when trying to close the browser")
 
 class TelegramBotAutomation:
     def __init__(self, serial_number):
@@ -107,7 +107,7 @@ class TelegramBotAutomation:
             self.driver.get('https://web.telegram.org/k/')
             logging.info(f"Account {self.serial_number}: Navigated to Telegram web.")
         except Exception as e:
-            logging.exception(f"Account {self.serial_number}: Exception in navigating to Telegram bot: {str(e)}")
+            logging.exception(f"Account {self.serial_number}: Exception in navigating to Telegram bot")
             self.browser_manager.close_browser()
 
     def send_message(self, message):
@@ -150,6 +150,17 @@ class TelegramBotAutomation:
         if not self.switch_to_iframe():
             logging.info(f"Account {self.serial_number}: No iframes found")
             return
+        
+        try:
+            home_screen_button = self.wait_for_element(By.XPATH, "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[2]/div[2]/div[1]/button[1]")
+            home_screen_button.click()
+            logging.info(f"Account {self.serial_number}: Home screen button clicked.")
+        except NoSuchElementException:
+            logging.info(f"Account {self.serial_number}: Home screen button not found.")
+
+        sleep_time = random.randint(1, 2)
+        logging.info(f"Sleeping for {sleep_time} seconds.")
+        time.sleep(sleep_time)
 
         try:
             daily_reward_button = WebDriverWait(self.driver, 1).until(
@@ -161,7 +172,7 @@ class TelegramBotAutomation:
         except TimeoutException:
             logging.info(f"Account {self.serial_number}: Daily reward has already been claimed or button not found.")
         except WebDriverException as e:
-            logging.error(f"Account {self.serial_number}: Error occurred while trying to claim reward - {str(e)}")
+            logging.error(f"Account {self.serial_number}: Error occurred while trying to claim reward")
 
 
 
