@@ -149,7 +149,7 @@ class TelegramBotAutomation:
             logging.error(f"Account {self.serial_number}: Error occurred while trying to click launch button. Trying to continue")
 
         logging.info(f"Account {self.serial_number}: BLUM STARTED")
-        sleep_time = random.randint(15, 20)
+        sleep_time = random.randint(7, 11)
         logging.info(f"Sleeping for {sleep_time} seconds.")
         time.sleep(sleep_time)
 
@@ -158,7 +158,7 @@ class TelegramBotAutomation:
             return
             
         try:
-            home_screen_button = self.wait_for_element(By.XPATH, "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[2]/div[2]/div[1]/button[1]")
+            home_screen_button = self.wait_for_element(By.XPATH, "//a[@class='tab']//span[contains(text(), 'Home') or contains(text(), 'Главная')]")
             home_screen_button.click()
             logging.info(f"Account {self.serial_number}: Home screen button clicked.")
         except NoSuchElementException:
