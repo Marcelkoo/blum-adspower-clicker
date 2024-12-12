@@ -149,25 +149,14 @@ class TelegramBotAutomation:
             logging.error(f"Account {self.serial_number}: Error occurred while trying to click launch button. Trying to continue")
 
         logging.info(f"Account {self.serial_number}: BLUM STARTED")
-        sleep_time = random.randint(7, 11)
+        sleep_time = random.randint(8, 11)
         logging.info(f"Sleeping for {sleep_time} seconds.")
         time.sleep(sleep_time)
 
         if not self.switch_to_iframe():
             logging.info(f"Account {self.serial_number}: No iframes found")
             return
-            
-        try:
-            home_screen_button = self.wait_for_element(By.XPATH, "//a[@class='tab']//span[contains(text(), 'Home') or contains(text(), 'Главная')]")
-            home_screen_button.click()
-            logging.info(f"Account {self.serial_number}: Home screen button clicked.")
-        except NoSuchElementException:
-            logging.info(f"Account {self.serial_number}: Home screen button not found.")
 
-        sleep_time = random.randint(1, 2)
-        logging.info(f"Sleeping for {sleep_time} seconds.")
-        time.sleep(sleep_time)
-        
         try:
             daily_reward_button = WebDriverWait(self.driver, 1).until(
                 EC.element_to_be_clickable((By.XPATH, "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[2]/div[2]/div[3]/button[1]"))
@@ -179,6 +168,17 @@ class TelegramBotAutomation:
             logging.info(f"Account {self.serial_number}: Daily reward has already been claimed or button not found.")
         except WebDriverException as e:
             logging.error(f"Account {self.serial_number}: Error occurred while trying to claim reward")
+
+        try:
+            home_screen_button = self.wait_for_element(By.XPATH, "//a[@class='tab']//span[contains(text(), 'Home') or contains(text(), 'Главная')]")
+            home_screen_button.click()
+            logging.info(f"Account {self.serial_number}: Home screen button clicked.")
+        except NoSuchElementException:
+            logging.info(f"Account {self.serial_number}: Home screen button not found.")
+
+        sleep_time = random.randint(1, 2)
+        logging.info(f"Sleeping for {sleep_time} seconds.")
+        time.sleep(sleep_time)
 
 
 
@@ -260,7 +260,7 @@ class TelegramBotAutomation:
     def start_farming(self, button):
         button.click()
         logging.info(f"Account {self.serial_number}: Clicked on 'Start farming'.")
-        sleep_time = random.randint(40, 50)
+        sleep_time = random.randint(7, 10)
         logging.info(f"Sleeping for {sleep_time} seconds.")
         time.sleep(sleep_time)
         self.handle_farming(button)
@@ -268,14 +268,11 @@ class TelegramBotAutomation:
             raise Exception(f"Account {self.serial_number}: Farming did not start successfully.")
 
     def claim_tokens(self, button, amount_text):
-        sleep_time = random.randint(5, 15)
-        logging.info(f"Sleeping for {sleep_time} seconds.")
-        time.sleep(sleep_time)
         logging.info(f"Account {self.serial_number}: Account has {amount_text} claimable tokens. Trying to claim.")
         
         button.click() 
-        logging.info(f"Account {self.serial_number}: Click successful. 10s sleep, waiting for button to update to 'Start Farming'...")
-        time.sleep(10)
+        logging.info(f"Account {self.serial_number}: Click successful. 5s sleep, waiting for button to update to 'Start Farming'...")
+        time.sleep(5)
   
         WebDriverWait(self.driver, 10).until(
             EC.visibility_of_element_located((By.CSS_SELECTOR, ".label"))
@@ -303,15 +300,28 @@ class TelegramBotAutomation:
                 EC.visibility_of_all_elements_located((By.CSS_SELECTOR, "div.profile-with-balance .kit-counter-animation.value .el-char-wrapper .el-char"))
             )
             balance = ''.join([element.text for element in balance_elements])
+            tickets = self.get_tickets()
             logging.info(f"Account {self.serial_number}: Current balance: {balance}")
+            logging.info(f"Account {self.serial_number}: Current tickets: {tickets}")
             sleep_time = random.randint(5, 15)
             logging.info(f"Sleeping for {sleep_time} seconds.")
             time.sleep(sleep_time)
-            return float(balance.replace(',', ''))
+            return float(balance.replace(',', '')), tickets
 
         except TimeoutException:
             logging.warning(f"Account {self.serial_number}: Failed to find the balance element.")
-            return 0.0
+            return 0.0, 0
+
+    def get_tickets(self):
+        try:
+            ticket_element = WebDriverWait(self.driver, 10).until(
+                EC.presence_of_element_located((By.CSS_SELECTOR, "div.pass"))
+            )
+            tickets_text = ticket_element.text
+            return int(''.join(filter(str.isdigit, tickets_text)))
+        except Exception as e:
+            logging.warning(f"Account {self.serial_number}: Failed to get tickets: {e}")
+            return 0
 
     def wait_for_element(self, by, value, timeout=10):
             return WebDriverWait(self.driver, timeout).until(
@@ -342,9 +352,10 @@ def write_accounts_to_file(accounts):
 def process_accounts():
     last_processed_account = None
     last_balance = 0.0
+    last_tickets = 0
 
     while True:
-        account_balances = []
+        account_data = []
 
         accounts = read_accounts_from_file()
         random.shuffle(accounts)
@@ -354,6 +365,7 @@ def process_accounts():
             retry_count = 0
             success = False
             balance = 0.0
+            tickets = 0
 
             while retry_count < 3 and not success:
                 bot = TelegramBotAutomation(account)
@@ -361,7 +373,7 @@ def process_accounts():
                     bot.navigate_to_bot()
                     bot.send_message("https://t.me/retg54erg45g4e")
                     bot.click_link()
-                    balance = bot.check_claim_button()
+                    balance, tickets = bot.check_claim_button()
                     logging.info(f"Account {account}: Processing completed successfully.")
                     success = True  
                 except Exception as e:
@@ -378,26 +390,31 @@ def process_accounts():
                 if retry_count >= 3:
                     logging.warning(f"Account {account}: Failed after 3 attempts.")
                     balance = 0.0
+                    tickets = 0
 
             if not success:
                 logging.warning(f"Account {account}: Moving to next account after 3 failed attempts.")
                 balance = 0.0
+                tickets = 0
 
-            account_balances.append((account, balance))
+            account_data.append((account, balance, tickets))
 
-        if account_balances:
-            last_processed_account, last_balance = account_balances[-1]
+        if account_data:
+            last_processed_account, last_balance, last_tickets = account_data[-1]
 
         table = BeautifulTable()
-        table.columns.header = ["Serial Number", "Balance"]
+        table.columns.header = ["Serial Number", "Balance", "Tickets"]
 
         total_balance = 0.0
-        for serial_number, balance in account_balances:
-            table.rows.append([serial_number, balance])
+        total_tickets = 0
+        for serial_number, balance, tickets in account_data:
+            table.rows.append([serial_number, balance, tickets])
             total_balance += balance
+            total_tickets += tickets
 
         logging.info("\n" + str(table))
         logging.info(f"Total Balance: {total_balance:,.2f}")
+        logging.info(f"Total Tickets: {total_tickets}")
 
         logging.info("All accounts processed. Waiting 8 hours before restarting.")
 
@@ -405,7 +422,7 @@ def process_accounts():
             logging.info(f"Waiting... {8 - hour} hours left till restart.")
             time.sleep(60 * 60)  
 
-        account_balances = [(last_processed_account, last_balance)]
+        account_data = [(last_processed_account, last_balance, last_tickets)]
         logging.info("Shuffling accounts for the next cycle.")
 
 if __name__ == "__main__":
