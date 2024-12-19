@@ -112,6 +112,8 @@ class TelegramBotAutomation:
         try:
             self.driver.get('https://web.telegram.org/k/')
             logging.info(f"Account {self.serial_number}: Navigated to Telegram web.")
+            time.sleep(2)
+            
         except Exception as e:
             logging.exception(f"Account {self.serial_number}: Exception in navigating to Telegram bot")
             self.browser_manager.close_browser()
@@ -158,28 +160,35 @@ class TelegramBotAutomation:
             return
 
         try:
-            daily_reward_button = WebDriverWait(self.driver, 1).until(
-                EC.element_to_be_clickable((By.XPATH, "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[2]/div[2]/div[3]/button[1]"))
-            )
-            daily_reward_button.click()
-            logging.info(f"Account {self.serial_number}: Daily reward claimed.")
-            time.sleep(2)
-        except TimeoutException:
-            logging.info(f"Account {self.serial_number}: Daily reward has already been claimed or button not found.")
-        except WebDriverException as e:
-            logging.error(f"Account {self.serial_number}: Error occurred while trying to claim reward")
-
-        try:
             home_screen_button = self.wait_for_element(By.XPATH, "//a[@class='tab']//span[contains(text(), 'Home') or contains(text(), 'Главная')]")
             home_screen_button.click()
             logging.info(f"Account {self.serial_number}: Home screen button clicked.")
         except NoSuchElementException:
             logging.info(f"Account {self.serial_number}: Home screen button not found.")
 
-        sleep_time = random.randint(1, 2)
+        sleep_time = random.randint(3, 4)
         logging.info(f"Sleeping for {sleep_time} seconds.")
         time.sleep(sleep_time)
 
+        try:
+            daily_reward_text_before = self.driver.find_element(By.CSS_SELECTOR, "div.compose").text
+            logging.info(f"Account {self.serial_number}: Daily reward text before click: {daily_reward_text_before}")
+
+            daily_reward_button = WebDriverWait(self.driver, 1).until(
+                EC.element_to_be_clickable((By.XPATH, "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[4]/div[1]/div[1]/button[1]/div[1]"))
+            )
+            daily_reward_button.click()
+            time.sleep(2)
+
+            daily_reward_text_after = self.driver.find_element(By.CSS_SELECTOR, "div.compose").text
+            logging.info(f"Account {self.serial_number}: Daily reward text after click: {daily_reward_text_after}")
+
+            logging.info(f"Account {self.serial_number}: Daily reward claimed.")
+            time.sleep(2)
+        except TimeoutException:
+            logging.info(f"Account {self.serial_number}: Daily reward has already been claimed or button not found.")
+        except WebDriverException as e:
+            logging.error(f"Account {self.serial_number}: Error occurred while trying to claim reward")
 
 
     def check_claim_button(self):
@@ -275,10 +284,10 @@ class TelegramBotAutomation:
         time.sleep(5)
   
         WebDriverWait(self.driver, 10).until(
-            EC.visibility_of_element_located((By.CSS_SELECTOR, ".label"))
+            EC.visibility_of_element_located((By.CSS_SELECTOR, ".button-label span"))
         )
 
-        start_farming_button = self.wait_for_element(By.CSS_SELECTOR, ".label")
+        start_farming_button = self.wait_for_element(By.CSS_SELECTOR, ".button-label span")
         start_farming_button.click() 
         logging.info(f"Account {self.serial_number}: Second click successful on 'Start farming'")
         sleep_time = random.randint(5, 15)
@@ -320,7 +329,7 @@ class TelegramBotAutomation:
             tickets_text = ticket_element.text
             return int(''.join(filter(str.isdigit, tickets_text)))
         except Exception as e:
-            logging.warning(f"Account {self.serial_number}: Failed to get tickets: {e}")
+            logging.warning(f"Account {self.serial_number}: Failed to get tickets:")
             return 0
 
     def wait_for_element(self, by, value, timeout=10):
@@ -377,7 +386,7 @@ def process_accounts():
                     logging.info(f"Account {account}: Processing completed successfully.")
                     success = True  
                 except Exception as e:
-                    logging.warning(f"Account {account}: Error occurred on attempt {retry_count + 1}: {e}")
+                    logging.warning(f"Account {account}: Error occurred on attempt {retry_count + 1}:")
                     retry_count += 1  
                 finally:
                     logging.info("-------------END-----------")
