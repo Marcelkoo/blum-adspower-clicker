@@ -46,7 +46,7 @@ class BrowserManager:
             launch_args = json.dumps(["--headless=new"])
             request_url = (
                 f'http://local.adspower.net:50325/api/v1/browser/start?'
-                f'serial_number={self.serial_number}&ip_tab=1&launch_args={launch_args}'
+                f'serial_number={self.serial_number}&ip_tab=1&headless=1&launch_args={launch_args}'
             )
 
             response = requests.get(request_url)
